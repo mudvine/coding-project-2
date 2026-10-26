@@ -1,1 +1,20 @@
+10/26/2026
+  10:50 AM : begun progress on the game. starting prompt as follows
+    webpage game for a driving simulator
 
+    basic white car as the player
+    points based on distance
+    incoming traffic on the left side
+    other cars drive slower than player
+
+  11:00 AM : add onto the game with following prompt 
+    add variability to how fast the other cars go, some go faster than others
+    allow user to control white car using their mouse
+    add point counter to track points gathered each drive
+      
+
+  11:06 result: followed through prompt, made more bugs
+    - not evenly spaced out lines for each lane
+    - cars phase through one another
+    - cars stay on two lanes, not the third
+    - points don't track for all runs
