@@ -1,5 +1,5 @@
 10/26/2026
-  10:50 AM : begun progress on the game. starting prompt as follows
+  10:50 : begun progress on the game. starting prompt as follows
     webpage game for a driving simulator
 
     basic white car as the player
@@ -7,7 +7,7 @@
     incoming traffic on the left side
     other cars drive slower than player
 
-  11:00 AM : add onto the game with following prompt 
+  11:00 : add onto the game with following prompt 
     add variability to how fast the other cars go, some go faster than others
     allow user to control white car using their mouse
     add point counter to track points gathered each drive
@@ -25,3 +25,32 @@ PLANS FOR TOMORROW:
   - more lanes
   - customize car/color
   - variable speed
+
+10/27/2026
+  10:45 : resumed progress, asked to fix bugs
+    result:
+      - lanes spaced out
+      - cars dont pahse through one another
+      - lanes squished too tightly
+    new bugs: NONE
+
+  10:49 : asked to make more room between the lanes : FAIL
+  10:51 : asked to make game itself more big for more room between lanes : FAIL
+  10:52 : asked to make game and road double sized : Success?
+  10:53 : asked to make it smaller : FAIL
+  10:56 : turn the game into the whole screen instead of inside a box and lanes to 125 px wide each : FAIL
+      - car width if 36, simple addition allows bare minimum to only be 72 pixels wide
+  10:59 : allow each lane to be 75 pixels wide : Success?
+  11:02 : change to be only 65px wide : SUCCESS!!!
+    bug encountered : car hitbox smalelr than actual size
+  11:03 : make hitbox match actual size : SUCCESS!!!!!!!!!!!!!!!
+
+  11:05 : new mechanics!
+    esc - pauses
+      r - restart
+    SUCESSS!
+
+  11:07 : points go up slower (1 every 100 distance) and stay between drives
+      SUCESS!!!!!!!!!!!
+      
+  
