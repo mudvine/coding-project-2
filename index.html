@@ -1,0 +1,1034 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101619">
+  <title>Long Way Home — Drive</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #f3f5f4;
+      --muted: #929d9d;
+      --line: #293335;
+      --panel: #151d1f;
+      --lime: #d5f66c;
+      --road-width: 331px;
+      --lane-animation-duration: .58s;
+      --roadside-animation-duration: 1.4s;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-width: 320px;
+      min-height: 100vh;
+      min-height: 100dvh;
+      margin: 0;
+      overflow: hidden;
+      background: #101619;
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    button { font: inherit; }
+
+    .game-shell {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      min-height: 100vh;
+      min-height: 100dvh;
+      pointer-events: none;
+    }
+
+    .topbar, .brand, .top-actions, .hud, .hud-stat, .game-footer, .controls, .overlay-actions {
+      display: flex;
+      align-items: center;
+    }
+
+    .topbar {
+      position: fixed;
+      z-index: 2;
+      top: 16px;
+      right: 20px;
+      left: 20px;
+      justify-content: space-between;
+      min-height: 48px;
+      pointer-events: auto;
+    }
+    .brand { gap: 12px; }
+    .brand-mark {
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      border: 1px solid #455344;
+      border-radius: 9px;
+      color: var(--lime);
+      font-size: 19px;
+      line-height: 1;
+    }
+    .brand-name { font-size: 13px; font-weight: 700; letter-spacing: .11em; }
+    .brand-sub { margin-top: 3px; color: var(--muted); font-size: 10px; letter-spacing: .09em; text-transform: uppercase; }
+    .top-actions { gap: 9px; }
+    .icon-button {
+      width: 37px;
+      height: 37px;
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #171f21;
+      color: #c8cecd;
+      cursor: pointer;
+    }
+    .icon-button:hover { border-color: #65706d; color: white; }
+    .shop-button { width: auto; padding: 0 12px; font-size: 11px; font-weight: 650; }
+    .sound-label { color: var(--muted); font-size: 11px; }
+
+    main { display: contents; }
+    .intro { display: none; }
+    .eyebrow { color: var(--lime); font-size: 10px; font-weight: 700; letter-spacing: .21em; text-transform: uppercase; }
+    h1 { margin: 7px 0 5px; font-size: clamp(25px, 4vw, 34px); font-weight: 650; letter-spacing: -.045em; }
+    .intro p { margin: 0; color: var(--muted); font-size: 12px; }
+
+    .hud {
+      position: fixed;
+      z-index: 2;
+      top: 78px;
+      left: 50%;
+      width: min(900px, calc(100% - 32px));
+      min-height: 63px;
+      justify-content: space-between;
+      margin: 0;
+      padding: 0 17px;
+      transform: translateX(-50%);
+      border: 1px solid rgba(115, 132, 127, .35);
+      border-radius: 12px;
+      background: rgba(21, 29, 31, .88);
+      backdrop-filter: blur(8px);
+      pointer-events: auto;
+    }
+    .hud-stat { gap: 10px; }
+    .hud-icon { color: var(--lime); font-size: 17px; }
+    .stat-label { color: var(--muted); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; }
+    .stat-value { margin-top: 2px; font-variant-numeric: tabular-nums; font-size: 16px; font-weight: 650; }
+    .stat-value small { color: var(--muted); font-size: 10px; font-weight: 500; }
+    .speed-indicator { display: flex; align-items: baseline; gap: 5px; }
+    .speed-indicator .stat-value { font-size: 21px; }
+
+    .road-stage {
+      position: fixed;
+      z-index: 0;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      min-height: 0;
+      overflow: hidden;
+      background: #34453d;
+      isolation: isolate;
+      pointer-events: auto;
+    }
+    .road-stage::before, .road-stage::after {
+      position: absolute;
+      z-index: -1;
+      top: -10%;
+      bottom: -10%;
+      width: max(0px, calc((100% - min(var(--road-width), 100%)) / 2));
+      content: "";
+      background-color: #34453d;
+      background-image: radial-gradient(ellipse at center, rgba(187, 199, 150, .22) 0 1px, transparent 1.5px);
+      background-size: 35px 43px;
+      animation: roadside var(--roadside-animation-duration) linear infinite;
+    }
+    .road-stage::before { left: 0; }
+    .road-stage::after { right: 0; }
+    @keyframes roadside { to { background-position-y: 43px; } }
+    .road {
+      position: absolute;
+      top: -2px;
+      bottom: -2px;
+      left: 50%;
+      width: var(--road-width);
+      transform: translateX(-50%);
+      overflow: hidden;
+      border-right: 3px solid #e2dfc8;
+      border-left: 3px solid #e2dfc8;
+      background: #424949;
+      box-shadow: 0 0 38px rgba(0, 0, 0, .12);
+    }
+    .lane-divider {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      transform: translateX(-1px);
+      background: rgba(247, 244, 223, .57);
+      animation: lane-scroll var(--lane-animation-duration) linear infinite;
+    }
+    .lane-divider:nth-child(1) { left: 20%; }
+    .lane-divider:nth-child(2) { left: 40%; }
+    .lane-divider:nth-child(3) { left: 60%; }
+    .lane-divider:nth-child(4) { left: 80%; }
+    @keyframes lane-scroll { to { background-position-y: 73px; } }
+    .road.paused .lane-divider, .road.paused .edge-line, .road-stage.paused::before, .road-stage.paused::after { animation-play-state: paused; }
+    .road-stage.stopped .lane-divider, .road-stage.stopped .edge-line,
+    .road-stage.stopped::before, .road-stage.stopped::after { animation-play-state: paused; }
+    .edge-line {
+      position: absolute;
+      z-index: 1;
+      top: 0;
+      bottom: 0;
+      width: 5px;
+      background: repeating-linear-gradient(to bottom, #db6152 0 18px, #f0eee2 18px 36px);
+      background-size: 5px 36px;
+      animation: lane-scroll var(--lane-animation-duration) linear infinite;
+    }
+    .edge-line.left { left: 0; }
+    .edge-line.right { right: 0; }
+
+    #gameCanvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .overlay {
+      position: fixed;
+      z-index: 3;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      background: rgba(12, 17, 18, .58);
+      backdrop-filter: blur(3px);
+      text-align: center;
+    }
+    .road-stage.shop-open .overlay { pointer-events: none; }
+    .overlay[hidden] { display: none; }
+    .overlay-card { width: min(330px, 100%); }
+    .overlay-kicker { color: var(--lime); font-size: 10px; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; }
+    .overlay h2 { margin: 10px 0 7px; font-size: 30px; letter-spacing: -.04em; }
+    .overlay p { margin: 0 auto 20px; max-width: 270px; color: #c1c9c6; font-size: 12px; line-height: 1.6; }
+    .primary-button {
+      min-width: 145px;
+      padding: 12px 20px;
+      border: 0;
+      border-radius: 9px;
+      background: var(--lime);
+      color: #1b2416;
+      font-size: 12px;
+      font-weight: 750;
+      cursor: pointer;
+      transition: transform .15s ease, background .15s ease;
+    }
+    .primary-button:hover { transform: translateY(-1px); background: #e1ff81; }
+    .overlay-hint { margin-top: 14px; color: #a5afaa; font-size: 10px; }
+    .shop-overlay {
+      position: fixed;
+      z-index: 5;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      background: rgba(8, 12, 13, .78);
+      backdrop-filter: blur(7px);
+      pointer-events: auto;
+    }
+    .shop-overlay[hidden] { display: none; }
+    .shop-panel {
+      width: min(620px, 100%);
+      max-height: min(780px, 92dvh);
+      overflow: auto;
+      padding: 22px;
+      border: 1px solid #354241;
+      border-radius: 16px;
+      background: #151d1f;
+      box-shadow: 0 22px 70px rgba(0, 0, 0, .45);
+    }
+    .shop-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+    .shop-header h2 { margin: 5px 0 0; font-size: 25px; letter-spacing: -.04em; }
+    .shop-balance { margin: 14px 0 18px; color: var(--muted); font-size: 12px; }
+    .shop-balance strong { color: var(--lime); font-variant-numeric: tabular-nums; }
+    .paint-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .paint-card {
+      min-width: 0;
+      padding: 11px;
+      border: 1px solid #303d3d;
+      border-radius: 11px;
+      background: #1b2526;
+    }
+    .paint-card.equipped { border-color: var(--lime); box-shadow: inset 0 0 0 1px rgba(213, 246, 108, .22); }
+    .paint-swatch {
+      height: 48px;
+      margin-bottom: 9px;
+      border: 1px solid rgba(255,255,255,.17);
+      border-radius: 8px;
+      box-shadow: inset 0 1px 5px rgba(255,255,255,.16), inset 0 -7px 12px rgba(0,0,0,.2);
+    }
+    .paint-swatch.gold {
+      background: linear-gradient(115deg, #8b5a00 0%, #f5cf48 18%, #fff4ad 32%, #c78d08 48%, #ffe56a 63%, #9a6500 82%, #f4d15b 100%);
+      background-size: 220% 100%;
+      animation: gold-shimmer 2.4s linear infinite;
+    }
+    @keyframes gold-shimmer { to { background-position: -220% 0; } }
+    .paint-name { margin-bottom: 9px; font-size: 12px; font-weight: 650; }
+    .paint-action {
+      width: 100%;
+      min-height: 32px;
+      padding: 6px;
+      border: 1px solid #3a4846;
+      border-radius: 7px;
+      background: #263231;
+      color: var(--ink);
+      font-size: 10px;
+      font-weight: 650;
+      cursor: pointer;
+    }
+    .paint-action:hover:not(:disabled) { border-color: var(--lime); color: var(--lime); }
+    .paint-action:disabled { color: #8c9994; cursor: default; opacity: .7; }
+    .shop-close { flex: 0 0 auto; }
+
+    .game-footer {
+      position: fixed;
+      z-index: 2;
+      bottom: 16px;
+      left: 50%;
+      width: min(900px, calc(100% - 32px));
+      min-height: 57px;
+      justify-content: space-between;
+      margin: 0;
+      padding: 0 16px;
+      transform: translateX(-50%);
+      border: 1px solid rgba(115, 132, 127, .35);
+      border-radius: 12px;
+      background: rgba(21, 29, 31, .88);
+      backdrop-filter: blur(8px);
+      pointer-events: auto;
+    }
+    .controls { gap: 7px; color: var(--muted); font-size: 10px; }
+    kbd {
+      min-width: 23px;
+      padding: 4px 6px;
+      border: 1px solid #374343;
+      border-radius: 5px;
+      background: #1d2728;
+      color: #d5dcda;
+      font-family: inherit;
+      font-size: 10px;
+      text-align: center;
+    }
+    .control-group { display: flex; align-items: center; gap: 4px; }
+    .touch-controls { display: none; gap: 6px; }
+    .touch-button {
+      width: 43px;
+      height: 35px;
+      padding: 0 5px;
+      flex: 0 0 auto;
+      border: 1px solid #3a4644;
+      border-radius: 8px;
+      background: #202a2b;
+      color: var(--ink);
+      font-size: 17px;
+    }
+    .touch-button.speed-control { width: 48px; font-size: 11px; }
+    .best-score { color: var(--muted); font-size: 10px; }
+    .best-score strong { margin-left: 4px; color: var(--lime); font-variant-numeric: tabular-nums; }
+
+    @media (max-width: 600px) {
+      .topbar { top: 10px; right: 12px; left: 12px; }
+      .hud { top: 66px; min-height: 57px; padding: 0 10px; }
+      .hud-stat { gap: 5px; }
+      .stat-label { font-size: 8px; letter-spacing: .06em; }
+      .stat-value { font-size: 14px; }
+      .speed-indicator .stat-value { font-size: 18px; }
+      .game-footer { bottom: 10px; padding: 0 10px; }
+      .keyboard-controls { display: none; }
+      .touch-controls { display: flex; gap: 4px; }
+      .touch-button { width: 37px; }
+      .touch-button.speed-control { width: 43px; font-size: 10px; }
+      .best-score { font-size: 9px; }
+      .shop-panel { padding: 16px; }
+      .paint-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">↗</div>
+        <div>
+          <div class="brand-name">OPEN ROAD</div>
+          <div class="brand-sub">A little driving game</div>
+        </div>
+      </div>
+      <div class="top-actions">
+        <span class="sound-label" id="soundLabel">Sound off</span>
+        <button class="icon-button shop-button" id="shopButton" type="button" aria-haspopup="dialog" aria-controls="shopOverlay">Shop</button>
+        <button class="icon-button" id="soundButton" type="button" aria-label="Turn sound on" title="Toggle sound">♪</button>
+        <button class="icon-button" id="pauseButton" type="button" aria-label="Pause game" title="Pause game">Ⅱ</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="intro" aria-labelledby="gameTitle">
+        <div class="eyebrow">Cruise at your own pace</div>
+        <h1 id="gameTitle">Long Way Home</h1>
+        <p>Keep your cool. The miles will take care of themselves.</p>
+      </section>
+
+      <section class="hud" aria-label="Driving stats">
+        <div class="hud-stat">
+          <span class="hud-icon" aria-hidden="true">↗</span>
+          <div><div class="stat-label">Distance</div><div class="stat-value"><span id="distance">0</span> <small>m</small></div></div>
+        </div>
+        <div class="hud-stat speed-indicator">
+          <div><div class="stat-label">Your speed</div><div class="stat-value"><span id="speed">92</span> <small>km/h</small></div></div>
+        </div>
+        <div class="hud-stat">
+          <span class="hud-icon" aria-hidden="true">★</span>
+          <div><div class="stat-label">Total points</div><div class="stat-value" id="points">0</div></div>
+        </div>
+        <div class="hud-stat">
+          <span class="hud-icon" aria-hidden="true">✦</span>
+          <div><div class="stat-label">Near misses</div><div class="stat-value" id="nearMisses">0</div></div>
+        </div>
+      </section>
+
+      <div class="road-stage" id="roadStage" aria-label="Top-down driving game">
+        <div class="road" id="road">
+          <span class="lane-divider"></span><span class="lane-divider"></span>
+          <span class="lane-divider"></span><span class="lane-divider"></span>
+          <span class="edge-line left"></span><span class="edge-line right"></span>
+        </div>
+        <canvas id="gameCanvas" aria-label="Your white car drives down a road. Move your mouse or use the arrow keys to steer around traffic."></canvas>
+        <div class="overlay" id="overlay">
+          <div class="overlay-card">
+            <div class="overlay-kicker" id="overlayKicker">Ready when you are</div>
+            <h2 id="overlayTitle">Take the scenic route.</h2>
+            <p id="overlayCopy">A quiet drive, traffic at all kinds of speeds, and as many miles as you can manage. Keep your eyes on the road.</p>
+            <button class="primary-button" id="startButton" type="button">Start driving <span aria-hidden="true">→</span></button>
+            <div class="overlay-hint">Move the mouse anywhere on the road to position your car · hold <strong>A / D</strong> to steer · <strong>W / ↑</strong> speed up · <strong>S / ↓</strong> slow down</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="shop-overlay" id="shopOverlay" hidden>
+        <section class="shop-panel" role="dialog" aria-modal="true" aria-labelledby="shopTitle">
+          <div class="shop-header">
+            <div>
+              <div class="overlay-kicker">Personalize your ride</div>
+              <h2 id="shopTitle">Paint shop</h2>
+            </div>
+            <button class="icon-button shop-close" id="closeShopButton" type="button" aria-label="Close shop">×</button>
+          </div>
+          <p class="shop-balance">Available points: <strong id="shopBalance">0</strong></p>
+          <div class="paint-grid" id="paintGrid"></div>
+        </section>
+      </div>
+
+      <footer class="game-footer">
+        <div class="controls keyboard-controls">
+          <span class="control-group"><kbd>←</kbd><kbd>→</kbd></span>
+          <span>or</span>
+          <span class="control-group"><kbd>A</kbd><kbd>D</kbd></span>
+          <span>hold to steer anywhere</span>
+          <span class="key-hint"><kbd>W</kbd>/<kbd>↑</kbd> speed up</span>
+          <span class="key-hint"><kbd>S</kbd>/<kbd>↓</kbd> slow down</span>
+          <span class="key-hint"><kbd>Esc</kbd> pause</span>
+          <span class="key-hint"><kbd>R</kbd> menu</span>
+        </div>
+        <div class="touch-controls">
+          <button class="touch-button" type="button" id="leftButton" aria-label="Steer left">←</button>
+          <button class="touch-button" type="button" id="rightButton" aria-label="Steer right">→</button>
+          <button class="touch-button speed-control" type="button" id="accelerateButton" aria-label="Hold to speed up">+ Speed</button>
+          <button class="touch-button speed-control" type="button" id="brakeButton" aria-label="Hold to slow down">− Brake</button>
+        </div>
+        <div class="best-score">Best distance <strong id="bestScore">0 m</strong></div>
+      </footer>
+    </main>
+  </div>
+
+  <script>
+    (() => {
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
+      const roadStage = document.getElementById("roadStage");
+      const road = document.getElementById("road");
+      const overlay = document.getElementById("overlay");
+      const overlayKicker = document.getElementById("overlayKicker");
+      const overlayTitle = document.getElementById("overlayTitle");
+      const overlayCopy = document.getElementById("overlayCopy");
+      const startButton = document.getElementById("startButton");
+      const shopOverlay = document.getElementById("shopOverlay");
+      const shopBalance = document.getElementById("shopBalance");
+      const paintGrid = document.getElementById("paintGrid");
+      const distanceReadout = document.getElementById("distance");
+      const speedReadout = document.getElementById("speed");
+      const pointsReadout = document.getElementById("points");
+      const nearMissReadout = document.getElementById("nearMisses");
+      const bestReadout = document.getElementById("bestScore");
+      const pauseButton = document.getElementById("pauseButton");
+      const soundButton = document.getElementById("soundButton");
+      const soundLabel = document.getElementById("soundLabel");
+      const lanes = 5;
+      const carWidth = 36;
+      const carHeight = 64;
+      const minimumTrafficGap = carHeight + 12;
+      const colors = ["#e46d57", "#e5bc65", "#7899cf", "#77a88a", "#b77fac"];
+      const paints = [
+        { id: "black", name: "Black", color: "#17191c", price: 100 },
+        { id: "red", name: "Red", color: "#e53935", price: 100 },
+        { id: "orange", name: "Orange", color: "#f57c00", price: 100 },
+        { id: "yellow", name: "Yellow", color: "#fdd835", price: 100 },
+        { id: "green", name: "Green", color: "#43a047", price: 100 },
+        { id: "cyan", name: "Cyan", color: "#00bcd4", price: 100 },
+        { id: "blue", name: "Blue", color: "#1e88e5", price: 100 },
+        { id: "purple", name: "Purple", color: "#8e24aa", price: 100 },
+        { id: "indigo", name: "Indigo", color: "#3f51b5", price: 100 },
+        { id: "gray", name: "Gray", color: "#757575", price: 100 },
+        { id: "gold", name: "Shiny Gold", color: "#d4af37", price: 1000, shiny: true }
+      ];
+      const storedPaints = (localStorage.getItem("openRoadOwnedPaints") || "").split(",").filter(id => paints.some(paint => paint.id === id));
+      const storedEquippedPaint = localStorage.getItem("openRoadEquippedPaint");
+      const initialEquippedPaint = paints.find(paint => paint.id === storedEquippedPaint && storedPaints.includes(paint.id));
+      const state = {
+        mode: "ready",
+        shopReturnMode: null,
+        playerX: null,
+        playerY: null,
+        steeringLeft: false,
+        steeringRight: false,
+        traffic: [],
+        elapsed: 0,
+        playerSpeed: 92,
+        accelerating: false,
+        braking: false,
+        distance: 0,
+        runPoints: 0,
+        totalPoints: Number(localStorage.getItem("openRoadPoints") || 0),
+        ownedPaints: new Set(["white", ...storedPaints]),
+        selectedPaint: initialEquippedPaint || { id: "white", name: "White", color: "#f5f5ef", price: 0 },
+        distancePointMilestone: 0,
+        nearMisses: 0,
+        spawnProgress: 0,
+        lastTime: 0,
+        laneOffset: 0,
+        best: Number(localStorage.getItem("openRoadBest") || 0),
+        sound: false,
+        audio: null
+      };
+      bestReadout.textContent = `${state.best} m`;
+      pointsReadout.textContent = state.totalPoints;
+
+      function renderPaintShop() {
+        shopBalance.textContent = state.totalPoints;
+        paintGrid.replaceChildren();
+        for (const paint of paints) {
+          const card = document.createElement("article");
+          card.className = "paint-card";
+          if (state.selectedPaint.id === paint.id) card.classList.add("equipped");
+
+          const swatch = document.createElement("div");
+          swatch.className = paint.shiny ? "paint-swatch gold" : "paint-swatch";
+          if (!paint.shiny) swatch.style.backgroundColor = paint.color;
+          swatch.setAttribute("aria-hidden", "true");
+
+          const name = document.createElement("div");
+          name.className = "paint-name";
+          name.textContent = paint.name;
+
+          const button = document.createElement("button");
+          button.className = "paint-action";
+          button.type = "button";
+          if (state.selectedPaint.id === paint.id) {
+            button.textContent = "Equipped";
+            button.disabled = true;
+          } else if (state.ownedPaints.has(paint.id)) {
+            button.textContent = "Equip";
+          } else {
+            button.textContent = state.totalPoints >= paint.price ? `Buy · ${paint.price} points` : `Need ${paint.price} points`;
+            button.disabled = state.totalPoints < paint.price;
+          }
+          button.addEventListener("click", () => purchaseOrEquipPaint(paint));
+
+          card.append(swatch, name, button);
+          paintGrid.append(card);
+        }
+      }
+
+      function purchaseOrEquipPaint(paint) {
+        if (!state.ownedPaints.has(paint.id)) {
+          if (state.totalPoints < paint.price) return;
+          state.totalPoints -= paint.price;
+          state.ownedPaints.add(paint.id);
+          localStorage.setItem("openRoadPoints", String(state.totalPoints));
+          localStorage.setItem("openRoadOwnedPaints", [...state.ownedPaints].filter(id => id !== "white").join(","));
+          pointsReadout.textContent = state.totalPoints;
+        }
+        state.selectedPaint = paint;
+        localStorage.setItem("openRoadEquippedPaint", paint.id);
+        renderPaintShop();
+        draw();
+      }
+
+      function openPaintShop() {
+        if (state.mode === "shop") return;
+        state.shopReturnMode = state.mode;
+        if (state.mode === "playing") road.classList.add("paused");
+        state.mode = "shop";
+        roadStage.classList.add("shop-open");
+        renderPaintShop();
+        shopOverlay.hidden = false;
+        document.getElementById("closeShopButton").focus();
+      }
+
+      function closePaintShop() {
+        if (state.mode !== "shop") return;
+        shopOverlay.hidden = true;
+        roadStage.classList.remove("shop-open");
+        state.mode = state.shopReturnMode;
+        state.shopReturnMode = null;
+        if (state.mode === "playing") {
+          road.classList.remove("paused");
+          state.lastTime = performance.now();
+          requestAnimationFrame(tick);
+        }
+        draw();
+      }
+
+      function dimensions() {
+        const rect = roadStage.getBoundingClientRect();
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.round(rect.width * dpr);
+        canvas.height = Math.round(rect.height * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        return { width: rect.width, height: rect.height };
+      }
+
+      function roadBounds() {
+        const stage = roadStage.getBoundingClientRect();
+        const asphalt = road.getBoundingClientRect();
+        return { left: asphalt.left - stage.left + 3, width: asphalt.width - 6 };
+      }
+
+      function laneCenter(lane) {
+        const bounds = roadBounds();
+        return bounds.left + bounds.width * (lane + 0.5) / lanes;
+      }
+
+      function playerWorldSpeed(speed) {
+        return 100 * (speed / 90) ** 2;
+      }
+
+      function drawCar(x, y, color, isPlayer, shiny = false) {
+        const w = carWidth;
+        const h = carHeight;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.shadowColor = "rgba(0,0,0,.3)";
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetY = 4;
+        let bodyColor = color;
+        if (shiny) {
+          bodyColor = ctx.createLinearGradient(-w / 2, -h / 2, w / 2, h / 2);
+          bodyColor.addColorStop(0, "#8b5a00");
+          bodyColor.addColorStop(0.2, "#f5cf48");
+          bodyColor.addColorStop(0.36, "#fff4ad");
+          bodyColor.addColorStop(0.52, "#c78d08");
+          bodyColor.addColorStop(0.7, "#ffe56a");
+          bodyColor.addColorStop(0.86, "#9a6500");
+          bodyColor.addColorStop(1, "#f4d15b");
+        }
+        roundedRect(-w / 2, -h / 2, w, h, 9, bodyColor);
+        ctx.shadowColor = "transparent";
+
+        roundedRect(-w / 2 + 4, -h / 2 + 12, w - 8, 23, 5, isPlayer ? "#a9c0c1" : "rgba(31,43,46,.77)");
+        roundedRect(-w / 2 + 5, -h / 2 + 15, w - 10, 16, 4, isPlayer ? "#d3e4e3" : "rgba(133,154,151,.42)");
+        roundedRect(-w / 2 + 5, h / 2 - 22, w - 10, 13, 4, isPlayer ? "#dce6e2" : "rgba(31,43,46,.66)");
+
+        ctx.fillStyle = isPlayer ? "#fff6c8" : "#ffe4a6";
+        ctx.fillRect(-w / 2 + 4, -h / 2 + 2, 7, 3);
+        ctx.fillRect(w / 2 - 11, -h / 2 + 2, 7, 3);
+        ctx.fillStyle = "#ef766c";
+        ctx.fillRect(-w / 2 + 4, h / 2 - 5, 7, 3);
+        ctx.fillRect(w / 2 - 11, h / 2 - 5, 7, 3);
+
+        ctx.fillStyle = "#22292a";
+        ctx.fillRect(-w / 2 - 2, -h / 2 + 12, 3, 12);
+        ctx.fillRect(w / 2 - 1, -h / 2 + 12, 3, 12);
+        ctx.fillRect(-w / 2 - 2, h / 2 - 24, 3, 12);
+        ctx.fillRect(w / 2 - 1, h / 2 - 24, 3, 12);
+        if (isPlayer) {
+          ctx.fillStyle = "rgba(255,255,255,.7)";
+          ctx.fillRect(-1, -h / 2 + 7, 2, 4);
+        }
+        ctx.restore();
+      }
+
+      function roundedRect(x, y, w, h, r, fill) {
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, r);
+        ctx.fillStyle = fill;
+        ctx.fill();
+      }
+
+      function draw() {
+        const { width, height } = dimensions();
+        ctx.clearRect(0, 0, width, height);
+        if (state.playerX === null) state.playerX = laneCenter(2);
+        if (state.playerY === null) state.playerY = height * 0.78;
+
+        state.traffic.forEach(car => drawCar(laneCenter(car.lane), car.y, car.color, false));
+        drawCar(state.playerX, state.playerY, state.selectedPaint.color, true, state.selectedPaint.shiny);
+
+        if (state.mode === "playing") {
+          const playerBox = { x: state.playerX - carWidth / 2, y: state.playerY - carHeight / 2, w: carWidth, h: carHeight };
+          for (const car of state.traffic) {
+            const carBox = { x: laneCenter(car.lane) - carWidth / 2, y: car.y - carHeight / 2, w: carWidth, h: carHeight };
+            if (playerBox.x < carBox.x + carBox.w && playerBox.x + playerBox.w > carBox.x &&
+                playerBox.y < carBox.y + carBox.h && playerBox.y + playerBox.h > carBox.y) {
+              finishGame();
+              break;
+            }
+            if (!car.counted && car.y > state.playerY + carHeight / 2) {
+              car.counted = true;
+              if (Math.abs(playerBox.x + playerBox.w / 2 - (carBox.x + carBox.w / 2)) < 60) {
+                state.nearMisses++;
+                addPoints(5);
+                nearMissReadout.textContent = state.nearMisses;
+              }
+            }
+          }
+        }
+      }
+
+      function spawnTraffic() {
+        const height = roadStage.clientHeight;
+        const cruiseSpeed = 90 + Math.random() * 20;
+        const playerScrollSpeed = playerWorldSpeed(state.playerSpeed);
+        const y = cruiseSpeed > playerScrollSpeed ? height + carHeight : -carHeight;
+        const availableLanes = Array.from({ length: lanes }, (_, lane) => lane)
+          .filter(lane => state.traffic.every(car =>
+            car.lane !== lane || Math.abs(car.y - y) >= minimumTrafficGap
+          ));
+        if (availableLanes.length === 0) return false;
+        const lane = availableLanes[Math.floor(Math.random() * availableLanes.length)];
+        state.traffic.push({
+          lane,
+          y,
+          cruiseSpeed,
+          speed: cruiseSpeed,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          counted: false
+        });
+        return true;
+      }
+
+      function trafficSpawnRate(distance) {
+        const completedHundreds = Math.floor(distance / 100);
+        const tier = Math.floor((Math.sqrt(1 + 8 * completedHundreds) - 1) / 2);
+        return Math.min(5, 0.1 * (tier + 1));
+      }
+
+      function moveTraffic(dt, playerSpeed) {
+        if (dt <= 0) return;
+        const ordered = [...state.traffic].sort((a, b) => a.lane - b.lane || a.y - b.y);
+        const leadByLane = new Map();
+        const playerScrollSpeed = playerWorldSpeed(playerSpeed);
+        for (const car of ordered) {
+          const lead = leadByLane.get(car.lane);
+          let targetSpeed = car.cruiseSpeed;
+
+          if (lead) {
+            const availableGap = Math.max(0, car.y - lead.y - minimumTrafficGap);
+            targetSpeed = Math.min(targetSpeed, lead.speed + availableGap / dt);
+          }
+
+          const braking = targetSpeed < car.speed;
+          const adjustment = (braking ? 260 : 65) * dt;
+          const adjustedSpeed = car.speed + Math.max(-adjustment, Math.min(adjustment, targetSpeed - car.speed));
+          car.speed = Math.min(adjustedSpeed, targetSpeed);
+          car.y += (playerScrollSpeed - car.speed) * dt;
+          if (lead && car.y < lead.y + minimumTrafficGap) {
+            car.y = lead.y + minimumTrafficGap;
+            car.speed = lead.speed;
+          }
+          leadByLane.set(car.lane, car);
+        }
+      }
+
+      function addPoints(points) {
+        state.runPoints += points;
+        state.totalPoints += points;
+        localStorage.setItem("openRoadPoints", String(state.totalPoints));
+        pointsReadout.textContent = state.totalPoints;
+      }
+
+      function updateRoadAnimationSpeed(speed) {
+        const worldSpeed = playerWorldSpeed(speed);
+        const safeSpeed = Math.max(worldSpeed, 1);
+        roadStage.style.setProperty("--lane-animation-duration", `${73 / safeSpeed}s`);
+        roadStage.style.setProperty("--roadside-animation-duration", `${43 / safeSpeed}s`);
+        roadStage.classList.toggle("stopped", speed === 0);
+      }
+
+      function tick(timestamp) {
+        if (state.mode !== "playing") return;
+        const dt = Math.min((timestamp - state.lastTime) / 1000 || 0, 0.05);
+        state.lastTime = timestamp;
+        state.elapsed += dt;
+        if (state.playerX === null) state.playerX = laneCenter(2);
+        if (state.playerY === null) state.playerY = roadStage.clientHeight * 0.78;
+        if (state.accelerating) state.playerSpeed = Math.min(160, state.playerSpeed + 10 * dt);
+        if (state.braking) state.playerSpeed = Math.max(0, state.playerSpeed - 20 * dt);
+        if (state.steeringLeft || state.steeringRight) {
+          const direction = Number(state.steeringRight) - Number(state.steeringLeft);
+          const bounds = roadBounds();
+          const minX = bounds.left + carWidth / 2;
+          const maxX = bounds.left + bounds.width - carWidth / 2;
+          state.playerX = Math.max(minX, Math.min(maxX, state.playerX + direction * 280 * dt));
+        }
+        updateRoadAnimationSpeed(state.playerSpeed);
+        state.distance += dt * state.playerSpeed / 3.6;
+        speedReadout.textContent = Math.round(state.playerSpeed);
+        distanceReadout.textContent = Math.floor(state.distance);
+        const distanceMilestone = Math.floor(state.distance / 100);
+        if (distanceMilestone > state.distancePointMilestone) {
+          addPoints(distanceMilestone - state.distancePointMilestone);
+          state.distancePointMilestone = distanceMilestone;
+        }
+        state.spawnProgress += dt * trafficSpawnRate(state.distance);
+        while (state.spawnProgress >= 1 - 1e-9) {
+          if (!spawnTraffic()) {
+            state.spawnProgress = 1;
+            break;
+          }
+          state.spawnProgress = Math.max(0, state.spawnProgress - 1);
+        }
+        moveTraffic(dt, state.playerSpeed);
+        state.traffic = state.traffic.filter(car => car.y > -carHeight && car.y < roadStage.clientHeight + carHeight);
+        draw();
+        requestAnimationFrame(tick);
+      }
+
+      function startGame() {
+        state.mode = "playing";
+        state.playerX = null;
+        state.playerY = null;
+        state.steeringLeft = false;
+        state.steeringRight = false;
+        state.traffic = [];
+        state.elapsed = 0;
+        state.playerSpeed = 92;
+        state.accelerating = false;
+        state.braking = false;
+        updateRoadAnimationSpeed(state.playerSpeed);
+        state.distance = 0;
+        state.runPoints = 0;
+        state.distancePointMilestone = 0;
+        state.nearMisses = 0;
+        state.spawnProgress = 0;
+        state.lastTime = performance.now();
+        distanceReadout.textContent = "0";
+        pointsReadout.textContent = state.totalPoints;
+        speedReadout.textContent = "92";
+        nearMissReadout.textContent = "0";
+        overlay.hidden = true;
+        road.classList.remove("paused");
+        pauseButton.setAttribute("aria-label", "Pause game");
+        requestAnimationFrame(tick);
+      }
+
+      function finishGame() {
+        if (state.mode !== "playing") return;
+        state.mode = "over";
+        state.accelerating = false;
+        state.braking = false;
+        state.steeringLeft = false;
+        state.steeringRight = false;
+        const score = Math.floor(state.distance);
+        if (score > state.best) {
+          state.best = score;
+          localStorage.setItem("openRoadBest", String(score));
+          bestReadout.textContent = `${score} m`;
+        }
+        showOverlay("A little detour", "Drive over", `You made it ${score} metres and earned ${state.runPoints} points this drive. Your total is ${state.totalPoints} points. The road will still be here when you're ready.`, "Try again");
+        playTone(110, 0.28);
+      }
+
+      function pauseGame() {
+        if (state.mode !== "playing") return;
+        state.mode = "paused";
+        state.accelerating = false;
+        state.braking = false;
+        state.steeringLeft = false;
+        state.steeringRight = false;
+        road.classList.add("paused");
+        showOverlay("Take a breather", "Paused", "Your trip is right where you left it.", "Keep driving");
+        pauseButton.setAttribute("aria-label", "Resume game");
+      }
+
+      function resumeGame() {
+        if (state.mode !== "paused") return;
+        state.mode = "playing";
+        overlay.hidden = true;
+        road.classList.remove("paused");
+        pauseButton.setAttribute("aria-label", "Pause game");
+        state.lastTime = performance.now();
+        requestAnimationFrame(tick);
+      }
+
+      function returnToMenu() {
+        state.mode = "ready";
+        state.playerX = null;
+        state.playerY = null;
+        state.steeringLeft = false;
+        state.steeringRight = false;
+        state.traffic = [];
+        state.distance = 0;
+        state.playerSpeed = 92;
+        state.accelerating = false;
+        state.braking = false;
+        updateRoadAnimationSpeed(state.playerSpeed);
+        state.runPoints = 0;
+        state.distancePointMilestone = 0;
+        state.nearMisses = 0;
+        state.spawnProgress = 0;
+        distanceReadout.textContent = "0";
+        pointsReadout.textContent = state.totalPoints;
+        speedReadout.textContent = "92";
+        nearMissReadout.textContent = "0";
+        road.classList.remove("paused");
+        pauseButton.setAttribute("aria-label", "Pause game");
+        showOverlay("Ready when you are", "Take the scenic route.", "A quiet drive, traffic at all kinds of speeds, and as many miles as you can manage. Keep your eyes on the road.", "Start driving");
+      }
+
+      function showOverlay(kicker, title, copy, button) {
+        overlayKicker.textContent = kicker;
+        overlayTitle.textContent = title;
+        overlayCopy.textContent = copy;
+        startButton.innerHTML = `${button} <span aria-hidden="true">→</span>`;
+        overlay.hidden = false;
+      }
+
+      document.addEventListener("keydown", event => {
+        if (state.mode === "shop") {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            closePaintShop();
+          }
+          return;
+        }
+        const key = event.key.toLowerCase();
+        if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", " ", "Escape"].includes(event.key)) event.preventDefault();
+        if (state.mode === "playing" && (event.key === "ArrowLeft" || key === "a")) {
+          state.steeringLeft = true;
+        }
+        if (state.mode === "playing" && (event.key === "ArrowRight" || key === "d")) {
+          state.steeringRight = true;
+        }
+        if (state.mode === "playing" && (key === "w" || event.key === "ArrowUp")) state.accelerating = true;
+        if (state.mode === "playing" && (key === "s" || event.key === "ArrowDown")) state.braking = true;
+        if ((event.key === " " || event.key === "Escape") && state.mode === "playing") pauseGame();
+        else if (event.key === "Escape" && state.mode === "paused") resumeGame();
+        if (key === "r") returnToMenu();
+      });
+      document.getElementById("shopButton").addEventListener("click", openPaintShop);
+      document.getElementById("closeShopButton").addEventListener("click", closePaintShop);
+      shopOverlay.addEventListener("click", event => {
+        if (event.target === shopOverlay) closePaintShop();
+      });
+      document.addEventListener("keyup", event => {
+        const key = event.key.toLowerCase();
+        if (event.key === "ArrowLeft" || key === "a") state.steeringLeft = false;
+        if (event.key === "ArrowRight" || key === "d") state.steeringRight = false;
+        if (key === "w" || event.key === "ArrowUp") state.accelerating = false;
+        if (key === "s" || event.key === "ArrowDown") state.braking = false;
+      });
+      window.addEventListener("blur", () => {
+        state.accelerating = false;
+        state.braking = false;
+        state.steeringLeft = false;
+        state.steeringRight = false;
+      });
+      startButton.addEventListener("click", () => state.mode === "paused" ? resumeGame() : startGame());
+      pauseButton.addEventListener("click", () => state.mode === "playing" ? pauseGame() : state.mode === "paused" ? resumeGame() : null);
+      function bindSteeringButton(buttonId, stateKey) {
+        const button = document.getElementById(buttonId);
+        const release = () => { state[stateKey] = false; };
+        button.addEventListener("pointerdown", event => {
+          event.preventDefault();
+          if (state.mode === "playing") {
+            state[stateKey] = true;
+          }
+          button.setPointerCapture(event.pointerId);
+        });
+        button.addEventListener("pointerup", release);
+        button.addEventListener("pointercancel", release);
+        button.addEventListener("lostpointercapture", release);
+      }
+      bindSteeringButton("leftButton", "steeringLeft");
+      bindSteeringButton("rightButton", "steeringRight");
+      function bindSpeedButton(buttonId, stateKey) {
+        const button = document.getElementById(buttonId);
+        const release = () => { state[stateKey] = false; };
+        button.addEventListener("pointerdown", event => {
+          event.preventDefault();
+          if (state.mode === "playing") state[stateKey] = true;
+          button.setPointerCapture(event.pointerId);
+        });
+        button.addEventListener("pointerup", release);
+        button.addEventListener("pointercancel", release);
+        button.addEventListener("lostpointercapture", release);
+      }
+      bindSpeedButton("accelerateButton", "accelerating");
+      bindSpeedButton("brakeButton", "braking");
+      roadStage.addEventListener("pointermove", event => {
+        if (state.mode !== "playing" || event.pointerType !== "mouse") return;
+        const stage = roadStage.getBoundingClientRect();
+        const bounds = roadBounds();
+        const minX = bounds.left + carWidth / 2;
+        const maxX = bounds.left + bounds.width - carWidth / 2;
+        const minY = carHeight / 2;
+        const maxY = stage.height - carHeight / 2;
+        state.playerX = Math.max(minX, Math.min(maxX, event.clientX - stage.left));
+        state.playerY = Math.max(minY, Math.min(maxY, event.clientY - stage.top));
+        state.steeringLeft = false;
+        state.steeringRight = false;
+      });
+
+      function playTone(frequency, duration) {
+        if (!state.sound) return;
+        state.audio = state.audio || new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = state.audio.createOscillator();
+        const gain = state.audio.createGain();
+        oscillator.frequency.value = frequency;
+        gain.gain.setValueAtTime(0.04, state.audio.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, state.audio.currentTime + duration);
+        oscillator.connect(gain).connect(state.audio.destination);
+        oscillator.start();
+        oscillator.stop(state.audio.currentTime + duration);
+      }
+      soundButton.addEventListener("click", () => {
+        state.sound = !state.sound;
+        soundButton.setAttribute("aria-label", state.sound ? "Turn sound off" : "Turn sound on");
+        soundLabel.textContent = state.sound ? "Sound on" : "Sound off";
+        if (state.sound) playTone(440, 0.08);
+      });
+
+      let touchStartX = null;
+      roadStage.addEventListener("touchstart", event => { touchStartX = event.changedTouches[0].clientX; }, { passive: true });
+      roadStage.addEventListener("touchend", event => {
+        if (touchStartX === null) return;
+        const delta = event.changedTouches[0].clientX - touchStartX;
+        if (Math.abs(delta) > 24) steer(delta > 0 ? 1 : -1);
+        touchStartX = null;
+      }, { passive: true });
+
+      window.addEventListener("resize", draw);
+      draw();
+    })();
+  </script>
+</body>
+</html>
